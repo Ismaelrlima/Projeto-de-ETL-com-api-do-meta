@@ -1,0 +1,16 @@
+# Arquivos de Ambiente Virtual Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Arquivos de Dados
+*.csv
+*.json
+data/
+downloads/
+
+# Arquivos de Configuração SENSÍVEIS (CRÍTICO)
+.env
+config/.env
+secrets.json
