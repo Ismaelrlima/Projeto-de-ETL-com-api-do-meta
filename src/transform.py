@@ -1,5 +1,3 @@
-# Em: ETL_PROJETCT/src/transform.py
-
 import pandas as pd
 # Removido get_lead_city_raw
 from .extract import get_campaign_data_raw, get_lead_demographic_raw, get_lead_geographic_raw, get_name_dim_raw 
@@ -124,7 +122,6 @@ def run_etl_pipeline_leads(total_days=182) -> pd.DataFrame:
     merge_keys_base = [k for k in base_merge_keys if k not in ['spend', 'impressions', 'clicks']] 
     
     # 1. Merge DEMO (age, gender) + GEO (region)
-    # Merge nos campos comuns (data, ad_id, etc.) para combinar as métricas por quebra
     
     # Garante que o df_demo (que tem age/gender) é a base
     df_base = df_demo

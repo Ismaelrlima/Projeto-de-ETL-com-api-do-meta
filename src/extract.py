@@ -1,11 +1,3 @@
-# ========================================================================================
-# ARQUIVO: ETL_PROJETCT/src/extract.py
-# CORREÇÕES: 
-# 1. Extração de Dimensão (get_name_dim_raw) usa /ads e lógica de desaninhamento para garantir nomes.
-# 2. Remoção de referências à extração de 'city'.
-# 3. Tratamento de credenciais e API.
-# ========================================================================================
-
 import os
 import datetime
 import pandas as pd
@@ -25,9 +17,9 @@ APP_SECRET = os.getenv("APP_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 AD_ACCOUNT_ID = os.getenv("AD_ACCOUNT_ID")
 
-# ========================================================================================
+
 # FUNÇÕES AUXILIARES DE CONEXÃO E CONFIGURAÇÃO
-# ========================================================================================
+
 
 def _init_api_and_get_timerange(total_days: int) -> tuple:
     """Inicializa a API do Meta e calcula o time_range para extrações."""
@@ -56,9 +48,9 @@ def _init_api_and_get_timerange(total_days: int) -> tuple:
     
     return account, time_range
 
-# ========================================================================================
+
 # 1. EXTRAÇÃO DE LEADS BRUTOS (ads_raw_leads)
-# ========================================================================================
+
 
 def get_raw_leads_data(total_days: int = 182) -> pd.DataFrame:
     """Extrai dados brutos de leads via API do Facebook."""
@@ -102,9 +94,9 @@ def get_raw_leads_data(total_days: int = 182) -> pd.DataFrame:
         print(f'[EXTRAÇÃO: Leads Brutos] Erro fatal na extração: {e}')
         return pd.DataFrame()
 
-# ========================================================================================
-# 2. EXTRAÇÃO DE DIMENSÃO (ads_dimension) - CORRIGIDA PARA GARANTIR NOMES
-# ========================================================================================
+
+# 2. EXTRAÇÃO DE DIMENSÃO (ads_dimension)
+
 
 def get_name_dim_raw(total_days: int = 1) -> pd.DataFrame:
     """Extrai IDs e Nomes para a tabela de Dimensão (ads_dimension) usando o endpoint /ads."""
@@ -174,9 +166,9 @@ def get_name_dim_raw(total_days: int = 1) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-# ========================================================================================
+
 # 3. FUNÇÕES DE EXTRAÇÃO DE INSIGHTS (ads_campaign_performance & ads_lead_insights)
-# ========================================================================================
+
 
 # Colunas padrão para Insights (NÃO incluem nomes, que vêm da dimensão)
 INSIGHTS_FIELDS = [
@@ -241,5 +233,3 @@ def get_lead_demographic_raw(total_days: int = 182) -> pd.DataFrame:
 def get_lead_geographic_raw(total_days: int = 182) -> pd.DataFrame:
     """Extrai Leads com quebra por Região (State/Province)."""
     return _get_insights_data(total_days, level='ad', breakdown=['region'])
-
-# get_lead_city_raw (Removida conforme sua solicitação)
