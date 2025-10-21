@@ -3,7 +3,7 @@ from ..load import load_data_to_db
 
 # Constantes
 LEAD_TABLE = 'ads_lead_insights'
-TOTAL_DAYS_HISTORIC = 182 # 6 meses de histórico
+TOTAL_DAYS_HISTORIC = 15 # 6 meses de histórico
 
 
 print(f'=== INICIANDO ETL: {LEAD_TABLE} (Leads Granular) ===')

@@ -1,3 +1,5 @@
+# Em: ETL_PROJETCT/src/load.py (Apenas a função load_data_to_db é mostrada)
+
 import os
 import pandas as pd
 from dotenv import load_dotenv
@@ -43,13 +45,14 @@ def load_data_to_db(df: pd.DataFrame, table_name: str):
         df.to_sql(name=temp_table, con=engine, if_exists='replace', index=False, chunksize=5000)
         print(f"[CARGA: {table_name}] Dados inseridos na tabela temporária '{temp_table}'.")
 
-        #define chave primaria
+        # Define chave primaria
         if table_name == 'ads_dimension':
             key_cols = ['ad_id']
         elif table_name == 'ads_campaign_performance':
             key_cols = ['date_start', 'ad_id']
         elif table_name == 'ads_lead_insights':
-            key_cols = ['date_start', 'ad_id', 'age', 'gender', 'region', 'city']
+            # CHAVE CORRIGIDA: Removido 'city' para alinhar com o SQL
+            key_cols = ['date_start', 'ad_id', 'age', 'gender', 'region']
         
         # CHAVE PRIMÁRIA PARA LEADS BRUTOS
         elif table_name == 'ads_raw_leads':
@@ -116,7 +119,7 @@ def load_data_to_db(df: pd.DataFrame, table_name: str):
             connection.execute(text(upsert_query))
         
         with engine.begin() as connection:
-             connection.execute(text(f"DROP TABLE {temp_table}"))
+            connection.execute(text(f"DROP TABLE {temp_table}"))
 
         print(f"[CARGA: {table_name}] Concluída com sucesso.")
 
@@ -124,7 +127,7 @@ def load_data_to_db(df: pd.DataFrame, table_name: str):
         print(f'[CARGA: {table_name}] ERRO FATAL ao salvar no banco: {e}')
         # Tentativa de limpar a tabela temporária em caso de erro
         try:
-             with engine.begin() as connection:
-                 connection.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
+            with engine.begin() as connection:
+                connection.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
         except:
             pass
