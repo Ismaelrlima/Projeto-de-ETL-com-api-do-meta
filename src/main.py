@@ -8,7 +8,7 @@ if __name__ == '__main__':
     CAMPAIGN_TABLE = 'ads_campaign_performance'
     LEAD_TABLE = 'ads_lead_insights'
     
-    TOTAL_DAYS_HISTORIC = 182 
+    TOTAL_DAYS_HISTORIC = 1
     TOTAL_DAYS_DIM = 1       
     
 

@@ -3,7 +3,7 @@ from ..load import load_data_to_db
 
 # Constantes
 DIM_TABLE = 'ads_dimension'
-TOTAL_DAYS_DIM = 15 #total de dias
+TOTAL_DAYS_DIM = 1 #total de dias
 
 print(f'=== INICIANDO ETL: {DIM_TABLE} (Dimensão) ===')
 

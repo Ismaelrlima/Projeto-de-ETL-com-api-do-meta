@@ -3,7 +3,7 @@ from ..load import load_data_to_db
 
 # Constantes para a tabela de Performance
 CAMPAIGN_TABLE = 'ads_campaign_performance'
-TOTAL_DAYS_HISTORIC = 15
+TOTAL_DAYS_HISTORIC = 1
 
 
 print(f'=== INICIANDO ETL: {CAMPAIGN_TABLE} (Performance) ===')
