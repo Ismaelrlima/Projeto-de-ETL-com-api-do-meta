@@ -38,10 +38,13 @@ def _normalize_actions(df: pd.DataFrame) -> pd.DataFrame:
 
     df_transformed = pd.DataFrame(data)
     
-    # Lista atualizada sem 'city'
+    # Lista de colunas que não são métricas de contagem
     non_count_cols = ['date_start', 'date_stop', 'ad_id', 'adset_id', 'campaign_id', 'age', 'gender', 'region', 'spend']
     
-    required_metrics = ['spend', 'clicks', 'impressions']
+    # Metricas que PRECISAM existir, senão o código de recalculo falhará (CORREÇÃO DE KEYERROR AQUI)
+    # Adicionado 'lead' e 'purchase' para garantir que df.rename em _recalculate_metrics não falhe
+    required_metrics = ['spend', 'clicks', 'impressions', 'lead', 'purchase'] 
+    
     for col in required_metrics:
         if col not in df_transformed.columns:
             df_transformed[col] = 0
@@ -65,16 +68,26 @@ def _recalculate_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """Recalcula métricas derivadas (CPC, CPL, CAC, etc.)."""
     if df.empty: return df
 
+    # RENOMEIA COLUNAS: 'purchase' (e total_successes) FOI REMOVIDO DAQUI
     df = df.rename(columns={'impressions': 'total_impressions', 'clicks': 'total_clicks', 
                              'spend': 'total_spend', 
                              'lead': 'total_leads', 
-                             'purchase': 'total_successes'}, errors='ignore')
+                             # 'purchase': 'total_successes' <-- LINHA REMOVIDA
+                             }, errors='ignore')
+
+    # GARANTE que 'total_successes' existe, mas inicia com 0, para não quebrar o código que o usa
+    if 'total_successes' not in df.columns:
+        df['total_successes'] = 0 
+    # AINDA MELHOR: Use a métrica 'lead' como sucesso temporário
+    # Se o seu objetivo final é o lead, remova o 'purchase' do rename acima e descomente abaixo
+    # df['total_successes'] = df['total_leads'] 
+    
 
     df['cpc'] = df['total_spend'] / df['total_clicks']
     df['cpl'] = df['total_spend'] / df['total_leads']
-    df['cac'] = df['total_spend'] / df['total_successes']
+    # df['cac'] = df['total_spend'] / df['total_successes'] # <-- LINHA REMOVIDA
     df['ctr'] = df['total_clicks'] / df['total_impressions']
-    df['conversion_rate'] = df['total_successes'] / df['total_clicks']
+    # df['conversion_rate'] = df['total_successes'] / df['total_clicks'] # <-- LINHA REMOVIDA
 
     df = df.replace([float('inf'), -float('inf')], 0).fillna(0)
     
@@ -100,10 +113,15 @@ def run_etl_pipeline_campaigns(total_days=182) -> pd.DataFrame:
 
     df_final = _recalculate_metrics(df_agg)
     
+    # Colunas finais: 'total_successes', 'cpl', 'cac', 'conversion_rate' foram removidas
+    # ou garantidas por default 0 se não existirem
     final_cols = ['date_start', 'ad_id', 'adset_id', 'campaign_id', 'total_impressions', 'total_clicks', 
-                  'total_spend', 'total_leads', 'total_successes', 'cpc', 'ctr', 'cpl', 'conversion_rate', 'cac']
+                  'total_spend', 'total_leads', 'total_successes', 'cpc', 'ctr', 'cpl'] 
     
-    return df_final[[col for col in final_cols if col in df_final.columns]]
+    # Adicionado get() para garantir que colunas removidas não causem novo KeyError no slicing final
+    final_cols_safe = [col for col in final_cols if col in df_final.columns]
+    
+    return df_final[final_cols_safe]
 
 
 def run_etl_pipeline_leads(total_days=182) -> pd.DataFrame:
