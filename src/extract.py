@@ -31,14 +31,20 @@ def _init_api_and_get_timerange(total_days: int) -> tuple:
     FacebookAdsApi.init(APP_ID, APP_SECRET, ACCESS_TOKEN)
     api = FacebookAdsApi.get_default_api()
 
-    # Calcula o intervalo de tempo para a extração
-    today = datetime.date.today()
-    # Extração de D-1 para D-N
-    date_end = today - datetime.timedelta(days=1)
-    date_start = date_end - datetime.timedelta(days=total_days)
+    # 1. Obtém o momento ATUAL
+    now = datetime.datetime.now()
+
+    # 2. Define o fim da extração como AGORA
+    date_end = now
+    
+    HOURS_TO_PULL = 3  # <--- DEFINIÇÃO DA JANELA DE 2 HORAS AQUI!
+    
+    date_start = now - datetime.timedelta(hours=HOURS_TO_PULL)
+    
+    # 4. Formata no padrão YYYY-MM-DD HH:MM:SS (necessário para tempo granular)
     time_range = {
-        'since': date_start.strftime('%Y-%m-%d'),
-        'until': date_end.strftime('%Y-%m-%d')
+        'since': date_start.strftime('%Y-%m-%d %H:%M:%S'),
+        'until': date_end.strftime('%Y-%m-%d %H:%M:%S')
     }
 
     # Formata o ID da conta de anúncios
