@@ -43,8 +43,8 @@ def _init_api_and_get_timerange(total_days: int) -> tuple:
     
     # 4. Formata no padrão YYYY-MM-DD HH:MM:SS (necessário para tempo granular)
     time_range = {
-        'since': date_start.strftime('%Y-%m-%d %H:%M:%S'),
-        'until': date_end.strftime('%Y-%m-%d %H:%M:%S')
+        'since': date_start.strftime('%Y-%m-%d'),
+        'until': date_end.strftime('%Y-%m-%d')
     }
 
     # Formata o ID da conta de anúncios
@@ -178,8 +178,8 @@ def get_name_dim_raw(total_days: int = 1) -> pd.DataFrame:
 
 # Colunas padrão para Insights (NÃO incluem nomes, que vêm da dimensão)
 INSIGHTS_FIELDS = [
-    AdsInsights.Field.date_start,
-    AdsInsights.Field.date_stop,
+    #AdsInsights.Field.date_start,
+    #AdsInsights.Field.date_stop,
     AdsInsights.Field.ad_id,
     AdsInsights.Field.adset_id,
     AdsInsights.Field.campaign_id,
@@ -218,6 +218,13 @@ def _get_insights_data(total_days: int, level: str, breakdown: list = None) -> p
         df = pd.DataFrame(data)
         
         print(f"[EXTRAÇÃO: Insights - {level} | Quebra: {breakdown_str}] Extraídas {len(df)} linhas.")
+        
+        if 'date_start' not in df.columns:
+            start_date_str = time_range['since'].split(' ')[0] # Pega apenas a data (YYYY-MM-DD)
+            end_date_str = time_range['until'].split(' ')[0] # Pega a data de hoj
+            df['date_start'] = start_date_str
+            df['date_stop'] = end_date_str
+        
         return df
 
     except Exception as e:
