@@ -1,14 +1,14 @@
 import pandas as pd
-# Removido get_lead_city_raw
+
 from .extract import get_campaign_data_raw, get_lead_demographic_raw, get_lead_geographic_raw, get_name_dim_raw 
 import numpy as np 
 
-# --- WHITESLIST DE COLUNAS PERMITIDAS (FILTRAGEM) ---
+
 ALLOWED_ACTION_COLUMNS = [
-    # Core Ações que você PRECISA
+    
     'lead', 'purchase', 'link_click', 'page_engagement', 'post_engagement', 'video_view', 'comment',
     
-    # Conversões Específicas
+    
     'offsite_complete_registration_add_meta_leads', 'onsite_conversion_lead_grouped',
     'offsite_search_add_meta_leads', 'offsite_content_view_add_meta_leads',
     'onsite_conversion_messaging_first_reply', 'onsite_conversion_messaging_conversation_started_7d',
@@ -17,7 +17,7 @@ ALLOWED_ACTION_COLUMNS = [
     'onsite_conversion_messaging_block',
 ]
 
-# --- FUNÇÕES AUXILIARES ---
+
 
 def _normalize_actions(df: pd.DataFrame) -> pd.DataFrame:
     """Normaliza a coluna 'actions' e converte tipos."""
@@ -31,18 +31,17 @@ def _normalize_actions(df: pd.DataFrame) -> pd.DataFrame:
             for action in actions_list:
                 action_type = action['action_type']
                 value = action['value']
-                # Subistituição do ponto por sublinhado para colunas SQL
+                
                 safe_col_name = action_type.replace('.', '_')
                 row[safe_col_name] = value 
         data.append(row)
 
     df_transformed = pd.DataFrame(data)
     
-    # Lista de colunas que não são métricas de contagem
+    
     non_count_cols = ['date_start', 'date_stop', 'ad_id', 'adset_id', 'campaign_id', 'age', 'gender', 'region', 'spend']
     
-    # Metricas que PRECISAM existir, senão o código de recalculo falhará (CORREÇÃO DE KEYERROR AQUI)
-    # Adicionado 'lead' e 'purchase' para garantir que df.rename em _recalculate_metrics não falhe
+    
     required_metrics = ['spend', 'clicks', 'impressions', 'lead', 'purchase'] 
     
     for col in required_metrics:
@@ -68,35 +67,30 @@ def _recalculate_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """Recalcula métricas derivadas (CPC, CPL, CAC, etc.)."""
     if df.empty: return df
 
-    # RENOMEIA COLUNAS: 'purchase' (e total_successes) FOI REMOVIDO DAQUI
+    
     df = df.rename(columns={'impressions': 'total_impressions', 'clicks': 'total_clicks', 
                              'spend': 'total_spend', 
                              'lead': 'total_leads', 
-                             # 'purchase': 'total_successes' <-- LINHA REMOVIDA
+                             
                              }, errors='ignore')
 
-    # GARANTE que 'total_successes' existe, mas inicia com 0, para não quebrar o código que o usa
+    
     if 'total_successes' not in df.columns:
         df['total_successes'] = 0 
-    # AINDA MELHOR: Use a métrica 'lead' como sucesso temporário
-    # Se o seu objetivo final é o lead, remova o 'purchase' do rename acima e descomente abaixo
-    # df['total_successes'] = df['total_leads'] 
-    
+        
 
     df['cpc'] = df['total_spend'] / df['total_clicks']
     df['cpl'] = df['total_spend'] / df['total_leads']
-    # df['cac'] = df['total_spend'] / df['total_successes'] # <-- LINHA REMOVIDA
     df['ctr'] = df['total_clicks'] / df['total_impressions']
-    # df['conversion_rate'] = df['total_successes'] / df['total_clicks'] # <-- LINHA REMOVIDA
+    
 
     df = df.replace([float('inf'), -float('inf')], 0).fillna(0)
     
     return df
 
-# --- FUNÇÕES DE PIPELINE ---
 
 def run_etl_pipeline_dim(total_days=1) -> pd.DataFrame:
-    # A extração agora garante as colunas de nome, evitando o KeyError
+    
     df_raw = get_name_dim_raw(total_days=total_days) 
     if df_raw.empty: return pd.DataFrame()
     
@@ -113,12 +107,11 @@ def run_etl_pipeline_campaigns(total_days=182) -> pd.DataFrame:
 
     df_final = _recalculate_metrics(df_agg)
     
-    # Colunas finais: 'total_successes', 'cpl', 'cac', 'conversion_rate' foram removidas
-    # ou garantidas por default 0 se não existirem
+    
     final_cols = ['date_start', 'ad_id', 'adset_id', 'campaign_id', 'total_impressions', 'total_clicks', 
                   'total_spend', 'total_leads', 'total_successes', 'cpc', 'ctr', 'cpl'] 
     
-    # Adicionado get() para garantir que colunas removidas não causem novo KeyError no slicing final
+    
     final_cols_safe = [col for col in final_cols if col in df_final.columns]
     
     return df_final[final_cols_safe]
@@ -128,7 +121,7 @@ def run_etl_pipeline_leads(total_days=182) -> pd.DataFrame:
     """Processa a tabela de Leads unindo as extrações Demográfica e Geográfica (2-Way Merge)."""
     df_demo_raw = get_lead_demographic_raw(total_days=total_days)
     df_geo_raw = get_lead_geographic_raw(total_days=total_days)
-    # df_city_raw removido
+    
 
     if df_demo_raw.empty and df_geo_raw.empty:
         return pd.DataFrame()
@@ -139,31 +132,23 @@ def run_etl_pipeline_leads(total_days=182) -> pd.DataFrame:
     base_merge_keys = ['date_start', 'ad_id', 'adset_id', 'campaign_id', 'impressions', 'clicks', 'spend']
     merge_keys_base = [k for k in base_merge_keys if k not in ['spend', 'impressions', 'clicks']] 
     
-    # 1. Merge DEMO (age, gender) + GEO (region)
-    
-    # Garante que o df_demo (que tem age/gender) é a base
     df_base = df_demo
     
-    # Filtra colunas de região e as chaves base para o merge
     df_geo_subset = df_geo[['region'] + merge_keys_base].drop_duplicates()
     
-    # Faz o merge usando as chaves de métrica
-    # O how='outer' garante que nenhuma linha (por quebra) seja perdida
     df_final = pd.merge(df_base, df_geo_subset, 
                         on=merge_keys_base,
                         how='outer',
-                        suffixes=('_demo', '_geo')) # Adiciona sufixo em caso de colunas duplicadas
+                        suffixes=('_demo', '_geo')) 
     
-    # Resolve duplicações de colunas de métrica se houver (mantendo a da esquerda)
+    
     df_final = df_final.loc[:,~df_final.columns.duplicated()].copy()
     df_final = df_final.fillna(0)
     
     df_recalc = _recalculate_metrics(df_final)
     
-    # Chaves primárias da tabela granular (alinhadas com seu SQL: SEM CITY)
     group_keys = ['date_start', 'ad_id', 'adset_id', 'campaign_id', 'age', 'gender', 'region']
     
-    # Colunas finais = Chaves, Totais + Ações Permitidas (sem city)
     final_cols = group_keys + ['total_spend', 'total_leads'] + [col for col in ALLOWED_ACTION_COLUMNS if col in df_recalc.columns]
     final_cols = list(dict.fromkeys(final_cols))
 

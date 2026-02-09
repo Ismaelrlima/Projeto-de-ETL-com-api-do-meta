@@ -1,9 +1,8 @@
 from ..transform import run_etl_pipeline_dim
 from ..load import load_data_to_db 
 
-# Constantes
 DIM_TABLE = 'ads_dimension'
-TOTAL_DAYS_DIM = 1 #total de dias
+TOTAL_DAYS_DIM = 1 
 
 print(f'=== INICIANDO ETL: {DIM_TABLE} (Dimensão) ===')
 
@@ -15,5 +14,5 @@ try:
     
 except Exception as e:
     print(f'ERRO CRÍTICO NO FLUXO ETL {DIM_TABLE}: {e}')
-    # Saída com código de erro, útil para orquestradores como o Airflow
+    
     exit(1)

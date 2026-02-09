@@ -3,7 +3,7 @@ import datetime
 import pandas as pd
 from dotenv import load_dotenv
 
-# Importações do SDK do Meta Ads (Facebook Business)
+
 from facebook_business.api import FacebookAdsApi
 from facebook_business.adobjects.leadgenform import LeadgenForm
 from facebook_business.adobjects.adaccount import AdAccount
@@ -11,14 +11,14 @@ from facebook_business.adobjects.adsinsights import AdsInsights
 
 load_dotenv()
 
-# Credenciais lidas do .env (LEADS_*)
+
 APP_ID = os.getenv("APP_ID")
 APP_SECRET = os.getenv("APP_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 AD_ACCOUNT_ID = os.getenv("AD_ACCOUNT_ID")
 
 
-# FUNÇÕES AUXILIARES DE CONEXÃO E CONFIGURAÇÃO
+
 
 
 def _init_api_and_get_timerange(total_days: int) -> tuple:
@@ -27,27 +27,26 @@ def _init_api_and_get_timerange(total_days: int) -> tuple:
         print('ERRO: Credenciais do Meta Ads (LEADS_) não encontradas no .env.')
         return None, None
     
-    # Inicializa a API com as credenciais
     FacebookAdsApi.init(APP_ID, APP_SECRET, ACCESS_TOKEN)
     api = FacebookAdsApi.get_default_api()
 
-    # 1. Obtém o momento ATUAL
+    
     now = datetime.datetime.now()
 
-    # 2. Define o fim da extração como AGORA
+    
     date_end = now
     
-    HOURS_TO_PULL = 3  # <--- DEFINIÇÃO DA JANELA DE 2 HORAS AQUI!
+    HOURS_TO_PULL = 3  
     
     date_start = now - datetime.timedelta(hours=HOURS_TO_PULL)
     
-    # 4. Formata no padrão YYYY-MM-DD HH:MM:SS (necessário para tempo granular)
+    
     time_range = {
         'since': date_start.strftime('%Y-%m-%d'),
         'until': date_end.strftime('%Y-%m-%d')
     }
 
-    # Formata o ID da conta de anúncios
+    
     account_id_clean = AD_ACCOUNT_ID.replace("act_", "")
     formatted_account_id = f"act_{account_id_clean}"
     account = AdAccount(formatted_account_id, api=api)
@@ -55,7 +54,7 @@ def _init_api_and_get_timerange(total_days: int) -> tuple:
     return account, time_range
 
 
-# 1. EXTRAÇÃO DE LEADS BRUTOS (ads_raw_leads)
+
 
 
 def get_raw_leads_data(total_days: int = 182) -> pd.DataFrame:
@@ -67,7 +66,7 @@ def get_raw_leads_data(total_days: int = 182) -> pd.DataFrame:
     all_leads = []
     
     try:
-        # Pega todos os formulários da conta
+        
         forms_cursor = account.get_lead_gen_forms(
             fields=['id'],
             params={'limit': 100}
@@ -82,7 +81,7 @@ def get_raw_leads_data(total_days: int = 182) -> pd.DataFrame:
                 'form_id', 'field_data', 'ad_platform_data'
             ]
 
-            # Pega os leads de cada formulário
+            
             leads_cursor = LeadgenForm(form_id, api=account.api).get_leads(
                 fields=lead_fields,
                 params={'time_range': time_range, 'limit': 100}
@@ -101,7 +100,7 @@ def get_raw_leads_data(total_days: int = 182) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-# 2. EXTRAÇÃO DE DIMENSÃO (ads_dimension)
+
 
 
 def get_name_dim_raw(total_days: int = 1) -> pd.DataFrame:
@@ -113,7 +112,7 @@ def get_name_dim_raw(total_days: int = 1) -> pd.DataFrame:
     print(f"\n[EXTRAÇÃO: Dimensão (Nomes)] Iniciando extração de IDs e Nomes...")
 
     try:
-        # Pedindo nomes de níveis superiores com sintaxe de objeto aninhado ({name})
+        
         ad_fields = [
             'id', 'name', 
             'adset_id', 
@@ -138,31 +137,29 @@ def get_name_dim_raw(total_days: int = 1) -> pd.DataFrame:
         df = pd.DataFrame(data)
         
         if not df.empty:
-            # 1. Renomear o ID e Nome do AD
+            
             df = df.rename(columns={'id': 'ad_id', 'name': 'ad_name'}, errors='ignore')
             
-            # 2. Desaninha e Renomeia os campos de Adset e Campaign
-            # A API retorna 'adset' e 'campaign' como dicionários (objetos)
-            
+
             if 'adset' in df.columns:
-                # Extrai 'name' do objeto 'adset'
+                
                 df['adset_name'] = df['adset'].apply(lambda x: x.get('name') if isinstance(x, dict) else None)
-                # O ID pode ter vindo em 'adset_id' ou no objeto. Garantimos o ID do objeto, se necessário.
+                
                 df['adset_id'] = df['adset'].apply(lambda x: x.get('id') if isinstance(x, dict) and x.get('id') else x.get('id') if x else None)
                 df = df.drop(columns=['adset'], errors='ignore')
 
             if 'campaign' in df.columns:
-                # Extrai 'name' do objeto 'campaign'
+                
                 df['campaign_name'] = df['campaign'].apply(lambda x: x.get('name') if isinstance(x, dict) else None)
-                # O ID pode ter vindo em 'campaign_id' ou no objeto.
+                
                 df['campaign_id'] = df['campaign'].apply(lambda x: x.get('id') if isinstance(x, dict) and x.get('id') else x.get('id') if x else None)
                 df = df.drop(columns=['campaign'], errors='ignore')
             
-            # 3. Garante que as 6 colunas existem, mesmo que com None/NaN
+            
             required_cols = ['ad_id', 'ad_name', 'adset_id', 'adset_name', 'campaign_id', 'campaign_name']
             for col in required_cols:
                 if col not in df.columns:
-                    df[col] = None # Cria a coluna se estiver faltando (essencial para o transform.py)
+                    df[col] = None 
             
         print(f"[EXTRAÇÃO: Dimensão (Nomes)] Extraídos {len(df)} anúncios.")
         return df
@@ -173,13 +170,13 @@ def get_name_dim_raw(total_days: int = 1) -> pd.DataFrame:
 
 
 
-# 3. FUNÇÕES DE EXTRAÇÃO DE INSIGHTS (ads_campaign_performance & ads_lead_insights)
 
 
-# Colunas padrão para Insights (NÃO incluem nomes, que vêm da dimensão)
+
+
 INSIGHTS_FIELDS = [
-    #AdsInsights.Field.date_start,
-    #AdsInsights.Field.date_stop,
+    
+    
     AdsInsights.Field.ad_id,
     AdsInsights.Field.adset_id,
     AdsInsights.Field.campaign_id,
@@ -202,7 +199,7 @@ def _get_insights_data(total_days: int, level: str, breakdown: list = None) -> p
         params = {
             'level': level,
             'time_range': time_range,
-            'time_increment': 1, # Granularidade diária
+            'time_increment': 1, 
             'filtering': [],
             'limit': 1000,
         }
@@ -220,8 +217,8 @@ def _get_insights_data(total_days: int, level: str, breakdown: list = None) -> p
         print(f"[EXTRAÇÃO: Insights - {level} | Quebra: {breakdown_str}] Extraídas {len(df)} linhas.")
         
         if 'date_start' not in df.columns:
-            start_date_str = time_range['since'].split(' ')[0] # Pega apenas a data (YYYY-MM-DD)
-            end_date_str = time_range['until'].split(' ')[0] # Pega a data de hoj
+            start_date_str = time_range['since'].split(' ')[0] 
+            end_date_str = time_range['until'].split(' ')[0] 
             df['date_start'] = start_date_str
             df['date_stop'] = end_date_str
         
@@ -232,7 +229,7 @@ def _get_insights_data(total_days: int, level: str, breakdown: list = None) -> p
         return pd.DataFrame()
 
 
-# Funções Específicas
+
 def get_campaign_data_raw(total_days: int = 182) -> pd.DataFrame:
     """Extrai Performance de Campanhas (Nível Ad) - Tabela Fato Agregada."""
     return _get_insights_data(total_days, level='ad', breakdown=[])

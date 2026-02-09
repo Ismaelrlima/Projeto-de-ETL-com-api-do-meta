@@ -1,4 +1,4 @@
-# Em: ETL_PROJETCT/src/load.py (Apenas a função load_data_to_db é mostrada)
+
 
 import os
 import pandas as pd
@@ -23,7 +23,7 @@ except Exception as e:
     print(f"ERRO FATAL ao criar a conexão com o PostgreSQL: {e}")
     engine = None 
     
-# função de UPSERT
+
 def load_data_to_db(df: pd.DataFrame, table_name: str):
     """Realiza o UPSERT (Merge) no PostgreSQL."""
     if df.empty or engine is None:
@@ -33,28 +33,28 @@ def load_data_to_db(df: pd.DataFrame, table_name: str):
     print(f"[CARGA: {table_name}] Iniciando UPSERT de {len(df)} linhas...")
 
     try:
-        # Conversão de datas para o formato SQL
+        
         for col in ['date_start', 'date_stop', 'created_time']:
-            # Verifica se a coluna existe antes de tentar converter
+            
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce').dt.date
         
         temp_table = f'temp_{table_name}'
         
-        # Insere dados na tabela temporária
+        
         df.to_sql(name=temp_table, con=engine, if_exists='replace', index=False, chunksize=5000)
         print(f"[CARGA: {table_name}] Dados inseridos na tabela temporária '{temp_table}'.")
 
-        # Define chave primaria
+        
         if table_name == 'ads_dimension':
             key_cols = ['ad_id']
         elif table_name == 'ads_campaign_performance':
             key_cols = ['date_start', 'ad_id']
         elif table_name == 'ads_lead_insights':
-            # CHAVE CORRIGIDA: Removido 'city' para alinhar com o SQL
+            
             key_cols = ['date_start', 'ad_id', 'age', 'gender', 'region']
         
-        # CHAVE PRIMÁRIA PARA LEADS BRUTOS
+        
         elif table_name == 'ads_raw_leads':
             key_cols = ['lead_id']
 
@@ -66,31 +66,31 @@ def load_data_to_db(df: pd.DataFrame, table_name: str):
         update_cols = [col for col in df.columns if col not in key_cols]
         
         
-        # Lista de todas as colunas no DataFrame para o INSERT
+        
         cols_for_insert = ', '.join([f'"{c}"' for c in df.columns])
 
         if table_name == 'ads_raw_leads':
             
-            #Tratamento Específico para JSONB
             
-            #SELECT com o CAST
+            
+            
             cols_for_select_safe = ', '.join([f'"{c}"' for c in df.columns if c != 'field_data'])
             
-            #CAST::JSONB no campo field_data (protegido por CASE WHEN)
+            
             field_data_cast = 'CASE WHEN "field_data" IS NULL THEN NULL ELSE "field_data"::JSONB END AS "field_data"'
             select_clause = f'{cols_for_select_safe}, {field_data_cast}'
             
-            # Constrói o DO UPDATE SET com o CAST
+            
             set_clause_list = []
             for col in update_cols:
                 if col == 'field_data':
-                    # Aplica o CAST::JSONB apenas na coluna field_data
+                    
                     set_clause_list.append(f'"{col}" = EXCLUDED."{col}"::JSONB')
                 else:
                     set_clause_list.append(f'"{col}" = EXCLUDED."{col}"')
             set_clause = ', '.join(set_clause_list)
 
-            # Query final para ads_raw_leads (com CAST)
+            
             upsert_query = f"""
                 INSERT INTO {table_name} ({cols_for_insert})
                 SELECT {select_clause} FROM {temp_table}
@@ -100,11 +100,11 @@ def load_data_to_db(df: pd.DataFrame, table_name: str):
             """
             
         else:
-            # Query Genérica para todos os outros pipelines (sem CAST) 
+            
             
             cols_for_select = ', '.join([f'"{col}"' for col in df.columns])
             
-            # Constrói o SET clause genérico (igual ao seu original)
+            
             set_clause = ', '.join([f'"{col}" = EXCLUDED."{col}"' for col in update_cols])
             
             upsert_query = f"""
@@ -125,7 +125,7 @@ def load_data_to_db(df: pd.DataFrame, table_name: str):
 
     except Exception as e:
         print(f'[CARGA: {table_name}] ERRO FATAL ao salvar no banco: {e}')
-        # Tentativa de limpar a tabela temporária em caso de erro
+        
         try:
             with engine.begin() as connection:
                 connection.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
